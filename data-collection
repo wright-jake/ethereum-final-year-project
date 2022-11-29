@@ -1,0 +1,63 @@
+import snscrape.modules.twitter as sntwitter
+import numpy as np
+import pandas as pd
+import re
+
+#what are we searching for
+#format of query is '((words mentioned in tweet) (hashtags mentioned in tweet) (from:username) lang:en until:YYY-MM-DD since:YYYY-MM-DD)'
+query='((ethereum OR eth OR $eth) (#eth OR #crypto OR #hodl OR #whale)  lang:en until:2022-01-27 since:2022-01-26)'
+
+#array to store tweets
+tweets=[]
+
+#counter function to check still scraping and not broken
+count = 0
+
+#desired maximum tweets returned
+#limit=100
+
+for tweet in sntwitter.TwitterSearchScraper(query).get_items():
+    tweets.append([tweet.date, tweet.user.username, tweet.content])
+    count += 1
+    print(count)
+#     if len(tweets)==limit:
+#         break
+#     else:
+#         tweets.append([tweet.date, tweet.user.username, tweet.content])
+df=pd.DataFrame(tweets, columns=['Date', 'User', 'Tweet'])
+df
+
+#make all tweets lowercase
+df['clean']=df['Tweet'].str.lower()
+
+clean_tweets = []
+for tweet in df['clean']:
+    #remove mentions
+    tweet = re.sub("@[A-Za-z0-9_]+","", tweet)
+    
+    #remove hashtags
+    tweet = re.sub("#[A-Za-z0-9_]+","", tweet)
+    #re.sub('#(?!eth)[a-zA-Z]+', '', string)
+    
+    #remove links
+    tweet = re.sub(r"http\S+", "", tweet)
+    tweet = re.sub(r"www.\S+", "", tweet)
+    
+    #remove punctuation
+    tweet = re.sub('[()!?]', ' ', tweet)
+    tweet = re.sub('\[.*?\]',' ', tweet)
+    
+    #remove non-alphanumeric characters
+    tweet = re.sub("[^a-z0-9]"," ", tweet)
+    
+    #remove whitespaces
+    tweet = re.sub(' +', ' ', tweet)
+    
+    clean_tweets.append(tweet)
+df['clean'] = clean_tweets
+
+#remove rows where the tweet no longer contains eth
+df=df[df['clean'].str.contains(r'ethereum|\beth\b|crypto|hodl|whale')]
+
+#export to csv
+df['clean'].to_csv('26_1_22.csv', sep='\t', encoding='utf-8',index=False)
